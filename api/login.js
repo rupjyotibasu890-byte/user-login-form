@@ -1,8 +1,6 @@
 import mysql from "mysql2/promise";
-import bcrypt from "bcrypt";
-import dotenv from "dotenv";
-
-dotenv.config();
+import fs from "fs";
+import path from "path";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -16,50 +14,59 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Load Aiven CA certificate
+    const caCertPath = path.join(process.cwd(), "ca.pem");
+    const caCert = fs.readFileSync(caCertPath);
+
+    // Connect to Aiven MySQL with SSL
     const connection = await mysql.createConnection({
       host: process.env.MYSQLHOST,
       port: process.env.MYSQLPORT,
       user: process.env.MYSQLUSER,
       password: process.env.MYSQLPASSWORD,
       database: process.env.MYSQLDATABASE,
-      ssl: { rejectUnauthorized: true },
+      ssl: { ca: caCert },
     });
 
-    // Ensure table exists
+    // Make sure table exists
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(100),
         email VARCHAR(100) UNIQUE,
-        password VARCHAR(255)
+        password VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
+    // Check for user
     const [rows] = await connection.execute(
       "SELECT * FROM users WHERE email = ?",
       [email]
     );
 
+    await connection.end();
+
     if (rows.length === 0) {
-      await connection.end();
-      return res.status(400).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found" });
     }
 
     const user = rows[0];
-    const match = await bcrypt.compare(password, user.password);
 
-    await connection.end();
-
-    if (!match) {
+    if (user.password !== password) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    res.json({
-      message: "✅ Login successful",
-      user: { id: user.id, username: user.username, email: user.email },
+    res.status(200).json({
+      message: "✅ Login successful!",
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+      },
     });
   } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("❌ Database error:", err);
+    res.status(500).json({ error: "Database connection failed" });
   }
 }
