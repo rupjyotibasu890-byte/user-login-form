@@ -1,10 +1,16 @@
 {
+  "name": "user-login-form",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
-    "bcrypt": "^6.0.0",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "express-session": "^1.18.2",
-    "mysql2": "^3.15.3"
-    "type":"module"
+    "express": "^4.18.2",
+    "mysql2": "^3.6.0",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.3.1",
+    "express-session": "^1.17.3"
   }
 }
