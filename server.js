@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import session from "express-session";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 
 dotenv.config();
 
@@ -26,17 +27,19 @@ app.use(
   })
 );
 
-// MySQL Connection
+// MySQL connection pool with SSL
 const pool = mysql.createPool({
   host: process.env.MYSQLHOST,
   user: process.env.MYSQLUSER,
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
   port: process.env.MYSQLPORT,
-  ssl: { rejectUnauthorized: true },
+  ssl: {
+    ca: fs.readFileSync(process.env.MYSQL_SSL_CA),
+  },
 });
 
-// Create users table if not exists
+// Auto-create users table
 (async () => {
   try {
     const connection = await pool.getConnection();
@@ -68,15 +71,12 @@ app.get("/register", (req, res) => {
 app.post("/register", async (req, res) => {
   const { email, password } = req.body;
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await pool.query("INSERT INTO users (email, password) VALUES (?, ?)", [
-      email,
-      hashedPassword,
-    ]);
+    const hashed = await bcrypt.hash(password, 10);
+    await pool.query("INSERT INTO users (email, password) VALUES (?, ?)", [email, hashed]);
     res.send("✅ Registration successful! You can now log in.");
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY") {
-      res.status(400).send("❌ Email already registered!");
+      res.status(400).send("❌ Email already exists!");
     } else {
       console.error(err);
       res.status(500).send("❌ Server error during registration");
@@ -92,8 +92,8 @@ app.post("/login", async (req, res) => {
     if (rows.length === 0) return res.status(401).send("❌ User not found");
 
     const user = rows[0];
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).send("❌ Invalid password");
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(401).send("❌ Invalid password");
 
     req.session.user = { id: user.id, email: user.email };
     res.send(`✅ Welcome, ${user.email}!`);
@@ -103,10 +103,17 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Protected route example
+// Dashboard route
 app.get("/dashboard", (req, res) => {
-  if (!req.session.user) return res.status(401).send("Unauthorized access");
-  res.send(`Welcome to your dashboard, ${req.session.user.email}!`);
+  if (!req.session.user) return res.status(401).send("Unauthorized");
+  res.send(`Welcome ${req.session.user.email}!`);
+});
+
+// Logout route
+app.get("/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.send("✅ Logged out successfully");
+  });
 });
 
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
