@@ -1,6 +1,7 @@
 import mysql from "mysql2/promise";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 export default async function handler(req, res) {
@@ -15,8 +16,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     const connection = await mysql.createConnection({
       host: process.env.MYSQLHOST,
       port: process.env.MYSQLPORT,
@@ -26,6 +25,7 @@ export default async function handler(req, res) {
       ssl: { rejectUnauthorized: true },
     });
 
+    // Create users table if not exists
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -35,6 +35,10 @@ export default async function handler(req, res) {
       )
     `);
 
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert user
     await connection.execute(
       "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
       [username, email, hashedPassword]
@@ -42,9 +46,12 @@ export default async function handler(req, res) {
 
     await connection.end();
 
-    res.status(201).json({ message: "Registration successful!" });
+    res.status(201).json({ message: "✅ Registration successful!" });
   } catch (err) {
     console.error("Registration error:", err);
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({ error: "Email already exists" });
+    }
     res.status(500).json({ error: "Database error" });
   }
 }

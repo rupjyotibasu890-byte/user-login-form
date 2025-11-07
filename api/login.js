@@ -1,6 +1,7 @@
 import mysql from "mysql2/promise";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 export default async function handler(req, res) {
@@ -24,6 +25,7 @@ export default async function handler(req, res) {
       ssl: { rejectUnauthorized: true },
     });
 
+    // Ensure table exists
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -38,20 +40,24 @@ export default async function handler(req, res) {
       [email]
     );
 
-    await connection.end();
-
     if (rows.length === 0) {
+      await connection.end();
       return res.status(400).json({ error: "User not found" });
     }
 
     const user = rows[0];
     const match = await bcrypt.compare(password, user.password);
 
+    await connection.end();
+
     if (!match) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    res.json({ message: "Login successful", user: { id: user.id, email: user.email } });
+    res.json({
+      message: "✅ Login successful",
+      user: { id: user.id, username: user.username, email: user.email },
+    });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Server error" });
