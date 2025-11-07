@@ -5,7 +5,6 @@ import bcrypt from "bcrypt";
 import session from "express-session";
 import path from "path";
 import { fileURLToPath } from "url";
-import fs from "fs";
 
 dotenv.config();
 
@@ -27,7 +26,7 @@ app.use(
   })
 );
 
-// MySQL connection pool with SSL
+// ✅ MySQL connection pool with inline SSL from .env
 const pool = mysql.createPool({
   host: process.env.MYSQLHOST,
   user: process.env.MYSQLUSER,
@@ -35,7 +34,7 @@ const pool = mysql.createPool({
   database: process.env.MYSQLDATABASE,
   port: process.env.MYSQLPORT,
   ssl: {
-    ca: fs.readFileSync(process.env.MYSQL_SSL_CA),
+    ca: process.env.MYSQL_SSL_CA.replace(/\\n/g, "\n"), // ✅ no file read — uses inline cert
   },
 });
 
@@ -67,7 +66,7 @@ app.get("/register", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "register.html"));
 });
 
-// Register Route
+// Register route
 app.post("/register", async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -84,7 +83,7 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// Login Route
+// Login route
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -96,7 +95,7 @@ app.post("/login", async (req, res) => {
     if (!valid) return res.status(401).send("❌ Invalid password");
 
     req.session.user = { id: user.id, email: user.email };
-    res.send(`✅ Welcome, ${user.email}!`);
+    res.redirect("/dashboard");
   } catch (err) {
     console.error(err);
     res.status(500).send("❌ Server error during login");
@@ -105,14 +104,47 @@ app.post("/login", async (req, res) => {
 
 // Dashboard route
 app.get("/dashboard", (req, res) => {
-  if (!req.session.user) return res.status(401).send("Unauthorized");
-  res.send(`Welcome ${req.session.user.email}!`);
+  if (!req.session.user) return res.redirect("/");
+  res.send(`
+    <html>
+      <head>
+        <style>
+          body {
+            font-family: 'Segoe UI';
+            background: #f5f6fa;
+            text-align: center;
+            padding-top: 100px;
+          }
+          h2 {
+            color: #333;
+          }
+          button {
+            background: #66a6ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+          }
+          button:hover {
+            background: #4a8ef0;
+          }
+        </style>
+      </head>
+      <body>
+        <h2>Welcome, ${req.session.user.email}</h2>
+        <form action="/logout" method="GET">
+          <button type="submit">Logout</button>
+        </form>
+      </body>
+    </html>
+  `);
 });
 
 // Logout route
 app.get("/logout", (req, res) => {
   req.session.destroy(() => {
-    res.send("✅ Logged out successfully");
+    res.redirect("/");
   });
 });
 
