@@ -1,26 +1,11 @@
 {
-  "name": "user-login",
+  "name": "user-login-form",
   "version": "1.0.0",
-  "main": "register.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/rupjyotibasu890-byte/user-login-form.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/rupjyotibasu890-byte/user-login-form/issues"
-  },
-  "homepage": "https://github.com/rupjyotibasu890-byte/user-login-form#readme",
-  "description": "",
+  "type": "module",
   "dependencies": {
-    "bcrypt": "^6.0.0",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "mysql2": "^3.15.3"
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mysql2": "^3.9.7"
   }
 }
